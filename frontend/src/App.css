@@ -1,0 +1,190 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap');
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Outfit', sans-serif;
+  overflow: hidden;
+  /* Prevent scroll */
+  background-color: #000;
+  color: #eeeeee;
+}
+
+.App {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+}
+
+/* UI Overlay Container */
+.ui-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  /* Let clicks pass through to 3D scene */
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  /* Align to top */
+  align-items: flex-start;
+  /* Align to left */
+  padding: 2rem;
+  box-sizing: border-box;
+}
+
+/* Content Frame (Floating Panel) */
+.ui-content-frame {
+  pointer-events: auto;
+  /* Enable clicks on UI */
+  background: rgba(20, 20, 20, 0.85);
+  /* Dark Grey / Nearly Black Translucent */
+  backdrop-filter: blur(10px);
+  padding: 2rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-width: 320px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.8rem;
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  padding-bottom: 0.5rem;
+}
+
+/* Map Container */
+.map-container-wrapper {
+  width: 100%;
+  height: 200px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Controls Section */
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.75rem;
+  color: #aaaaaa;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+input {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  padding: 0.6rem;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  margin-top: 0.25rem;
+}
+
+/* Button Styling */
+button {
+  background: #333333;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 0.8rem;
+  border-radius: 6px;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 0.5rem;
+}
+
+button:hover:not(:disabled) {
+  background: #444444;
+  border-color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* City Presets & Custom Teleport Button */
+.city-presets {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 5px;
+  justify-content: center;
+}
+
+.city-presets button {
+  flex: 1;
+  padding: 6px 4px;
+  font-size: 0.7rem;
+  margin-top: 0;
+  background: rgba(212, 175, 55, 0.1);
+  border-color: rgba(212, 175, 55, 0.3);
+  color: #d4af37;
+}
+
+.city-presets button:hover {
+  background: rgba(212, 175, 55, 0.2);
+  border-color: #d4af37;
+}
+
+.teleport-btn {
+  background: linear-gradient(135deg, #d4af37, #8b7355) !important;
+  color: #000 !important;
+  border: none !important;
+  font-size: 1rem !important;
+  padding: 1rem !important;
+  margin-top: 10px !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4) !important;
+}
+
+.teleport-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(212, 175, 55, 0.5) !important;
+}
+
+.teleport-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+/* Status Bar */
+.status-bar {
+  font-size: 0.85rem;
+  color: #cccccc;
+  line-height: 1.4;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Wind Indicator (New) */
+.wind-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: #ffcc00;
+  /* Gold accent for wind */
+}

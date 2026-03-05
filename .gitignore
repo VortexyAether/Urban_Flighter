@@ -1,0 +1,14 @@
+.DS_Store
+
+# Frontend dependencies
+frontend/node_modules/
+
+# Python virtual env
+backend/venv/
+
+# Python cache
+**/__pycache__/
+*.py[cod]
+
+# Logs
+*.log
