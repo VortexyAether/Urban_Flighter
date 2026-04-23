@@ -1,0 +1,33 @@
+.energy-graph {
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.energy-graph__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.energy-graph__header span {
+  color: #8da3b3;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.energy-graph__header strong {
+  color: #ffdd9b;
+  font-size: 1rem;
+}
+
+.energy-graph__svg {
+  display: block;
+  width: 100%;
+  height: 110px;
+}

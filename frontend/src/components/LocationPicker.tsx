@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import React, { useEffect, useState } from 'react';
+import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -35,10 +35,21 @@ const LocationMarker: React.FC<{ onSelect: (lat: number, lon: number) => void }>
     return position ? <Marker position={position} /> : null;
 };
 
+const RecenterMap: React.FC<{ lat: number; lon: number }> = ({ lat, lon }) => {
+    const map = useMap();
+
+    useEffect(() => {
+        map.setView([lat, lon], map.getZoom(), { animate: true });
+    }, [lat, lon, map]);
+
+    return null;
+};
+
 const LocationPicker: React.FC<LocationPickerProps> = ({ initialLat, initialLon, onLocationSelect }) => {
     return (
         <div style={{ height: '300px', width: '100%', borderRadius: '10px', overflow: 'hidden', marginTop: '10px' }}>
             <MapContainer center={[initialLat, initialLon]} zoom={13} style={{ height: '100%', width: '100%' }}>
+                <RecenterMap lat={initialLat} lon={initialLon} />
                 <TileLayer
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

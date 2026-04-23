@@ -11,6 +11,45 @@ export interface MapData {
     message?: string;
 }
 
+export interface FlowFieldGrid {
+    nx: number;
+    ny: number;
+    cell_size_m: number;
+    bounds: {
+        min_x: number;
+        max_x: number;
+        min_y: number;
+        max_y: number;
+    };
+    ux: number[];
+    uy: number[];
+    mask: number[];
+    stats: {
+        mean_speed_mps: number;
+        max_speed_mps: number;
+        blocked_fraction: number;
+    };
+}
+
+export interface FlowField2DResponse {
+    buildings: BuildingData[];
+    weather: {
+        wind_speed: number;
+        wind_deg: number;
+        description: string;
+    };
+    inlet: {
+        ux: number;
+        uy: number;
+        speed_mps: number;
+    };
+    domain: {
+        geometry_radius_m: number;
+        solve_radius_m: number;
+    };
+    field: FlowFieldGrid;
+}
+
 export const fetchMapData = async (lat: number, lon: number, radius: number = 300): Promise<MapData> => {
     try {
         const response = await fetch(`${API_URL}/map?lat=${lat}&lon=${lon}&radius=${radius}`);
@@ -26,5 +65,34 @@ export const fetchMapData = async (lat: number, lon: number, radius: number = 30
 
 export const fetchWeather = async (lat: number, lon: number) => {
     const response = await fetch(`${API_URL}/weather?lat=${lat}&lon=${lon}`);
+    return await response.json();
+};
+
+export const fetchFlowField2D = async (
+    lat: number,
+    lon: number,
+    geometry_radius_m: number = 200,
+    solve_radius_m: number = 1000,
+    grid_size_m: number = 20
+): Promise<FlowField2DResponse> => {
+    const response = await fetch(`${API_URL}/flow-fields/2d`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            lat,
+            lon,
+            geometry_radius_m,
+            solve_radius_m,
+            grid_size_m,
+            use_real_weather: true,
+        }),
+    });
+
+    if (!response.ok) {
+        throw new Error('Failed to fetch 2D flow field');
+    }
+
     return await response.json();
 };

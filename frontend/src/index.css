@@ -1,161 +1,26 @@
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@300;400&display=swap');
-
 :root {
-  --souls-black: #0a0a0a;
-  --souls-dark-gray: #1a1a1a;
-  --souls-gold: #c2a064;
-  --souls-gold-dim: #7a6a4a;
-  --souls-text: #e0e0e0;
-  --souls-font-title: 'Cinzel', serif;
-  --souls-font-body: 'Inter', sans-serif;
+  font-family: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  color: #eef6fb;
+  background: #061017;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
-  margin: 0;
-  padding: 0;
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
-  background-color: var(--souls-black);
-  color: var(--souls-text);
-  font-family: var(--souls-font-body);
+  background: #061017;
 }
 
-.ui-overlay {
-  position: absolute;
-  top: 40px;
-  right: 40px;
-  width: 420px;
-  /* Wider for the frame */
-  background: transparent;
-  pointer-events: auto;
-  display: flex;
-  flex-direction: column;
-}
-
-/* Inner container to creating the 'frame' look */
-.ui-content-frame {
-  padding: 50px 40px;
-  /* Adjust padding to fit inside the frame image */
-  background: url('/ui_bg.png') no-repeat center center;
-  background-size: 100% 100%;
-  border: none;
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-  min-height: 480px;
-  /* Ensure enough height for the image aspect ratio */
-  filter: drop-shadow(0 0 20px rgba(0, 0, 0, 0.8));
-}
-
-h1 {
-  margin-top: 15px;
-  font-family: var(--souls-font-title);
-  font-size: 1.6rem;
-  font-weight: 700;
-  color: #fff;
-  text-align: center;
-  text-transform: uppercase;
-  text-shadow: 0 0 10px rgba(194, 160, 100, 0.8), 0 0 20px rgba(194, 160, 100, 0.4);
-  letter-spacing: 2px;
-  border-bottom: none;
-  padding-bottom: 10px;
-}
-
-.map-container-wrapper {
-  border: 2px solid var(--souls-gold-dim);
-  box-shadow: 0 0 15px rgba(0, 0, 0, 0.8);
-  border-radius: 4px;
-  overflow: hidden;
-  margin: 0 5px;
-}
-
-.map-container-wrapper::after {
-  content: "SELECT REGION";
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  background: var(--souls-black);
-  color: var(--souls-gold-dim);
-  font-family: var(--souls-font-title);
-  font-size: 0.7rem;
-  padding: 2px 8px;
-  border-top-left-radius: 4px;
-  pointer-events: none;
-  z-index: 400;
-  /* Above map tiles */
-}
-
-.controls {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.controls label {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-family: var(--souls-font-title);
-  color: #bbb;
-  font-size: 0.9rem;
-  letter-spacing: 1px;
-}
-
-.controls input {
-  background: rgba(0, 0, 0, 0.6);
-  border: none;
-  border-bottom: 1px solid var(--souls-gold-dim);
-  color: var(--souls-gold);
-  padding: 5px 10px;
-  width: 120px;
-  text-align: right;
-  font-family: var(--souls-font-body);
-  transition: all 0.3s;
-}
-
-.controls input:focus {
-  outline: none;
-  border-bottom-color: var(--souls-gold);
-  background: rgba(40, 30, 10, 0.3);
-}
-
-button {
-  margin-top: 10px;
-  background: transparent;
-  color: var(--souls-text);
-  border: 1px solid var(--souls-gold-dim);
-  padding: 12px;
-  font-family: var(--souls-font-title);
-  font-size: 1.2rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  position: relative;
-  overflow: hidden;
-}
-
-button:hover {
-  border-color: var(--souls-gold);
-  color: var(--souls-gold);
-  background: rgba(194, 160, 100, 0.1);
-  box-shadow: 0 0 15px rgba(194, 160, 100, 0.2);
-}
-
-button:disabled {
-  border-color: #333;
-  color: #555;
-  cursor: not-allowed;
-  background: transparent;
-  box-shadow: none;
-}
-
-.status-bar {
-  text-align: center;
-  font-family: var(--souls-font-title);
-  font-size: 0.9rem;
-  color: #888;
-  min-height: 1.5em;
-  font-style: italic;
+* {
+  box-sizing: border-box;
 }
