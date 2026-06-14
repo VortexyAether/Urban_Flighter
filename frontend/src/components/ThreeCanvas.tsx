@@ -17,31 +17,26 @@ export default function ThreeCanvas({ children }: ThreeCanvasProps) {
                 left: 0,
                 width: '100%',
                 height: '100%',
-                background: '#050505'
+                background: '#111316'
             }}
         >
             <PerspectiveCamera makeDefault position={[0, 100, 200]} fov={60} />
 
             {/* Atmosphere */}
-            <color attach="background" args={['#050505']} />
-            <fog attach="fog" args={['#050505', 100, 2500]} />
-            {/* <color attach="background" args={['#050505']} />
-            <fog attach="fog" args={['#050505', 100, 2500]} />
-
-            <Stars radius={300} depth={60} count={20000} factor={7} saturation={0} fade speed={1} />
-            <Sky distance={450000} sunPosition={[0, -1, 0]} inclination={0} azimuth={0.25} /> */}
+            <color attach="background" args={['#111316']} />
+            <fog attach="fog" args={['#111316', 140, 1800]} />
 
             {/* Lighting */}
-            <ambientLight intensity={0.4} />
-            <pointLight position={[100, 100, 100]} intensity={1} castShadow />
+            <ambientLight intensity={0.52} />
+            <pointLight position={[140, 120, 140]} intensity={0.65} castShadow />
             <directionalLight
                 position={[-100, 200, 100]}
-                intensity={1.5}
+                intensity={1.2}
                 castShadow
                 shadow-mapSize={[2048, 2048]}
             />
 
-            <hemisphereLight intensity={0.5} color="#c2a064" groundColor="#000000" />
+            <hemisphereLight intensity={0.48} color="#f7f8f5" groundColor="#111316" />
 
             {children}
 

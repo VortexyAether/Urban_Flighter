@@ -32,8 +32,8 @@ const Aircraft: React.FC<AircraftProps> = ({
     const groupRef = useRef<THREE.Group>(null);
 
     // Aircraft state
-    const [position] = useState(() => new THREE.Vector3(0, 50, 0));
-    const [velocity] = useState(() => new THREE.Vector3(0, 0, 0));
+    const positionRef = useRef(new THREE.Vector3(0, 50, 0));
+    const velocityRef = useRef(new THREE.Vector3(0, 0, 0));
     const [totalEnergyUsed, setTotalEnergyUsed] = useState(0);
     const [yaw, setYaw] = useState(0);     // Aircraft rotation angle (radians)
     const [pitch, setPitch] = useState(0); // Aircraft pitch angle (radians)
@@ -61,6 +61,8 @@ const Aircraft: React.FC<AircraftProps> = ({
 
     useFrame((_, delta) => {
         if (!groupRef.current) return;
+        const position = positionRef.current;
+        const velocity = velocityRef.current;
 
         // Simplified flight controls
         const forwardSpeed = 40;     // m/s
@@ -158,13 +160,13 @@ const Aircraft: React.FC<AircraftProps> = ({
             {/* Horse body (elongated box) */}
             <mesh position={[0, 0, 0]}>
                 <boxGeometry args={[4, 5, 12]} />
-                <meshStandardMaterial color="#3a3a3a" metalness={0.3} roughness={0.6} />
+                <meshStandardMaterial color="#f2f3ef" metalness={0.18} roughness={0.5} />
             </mesh>
 
             {/* Head/neck (cone pointing forward) */}
             <mesh position={[0, 3, -8]} rotation={[Math.PI / 2, 0, 0]}>
                 <coneGeometry args={[2, 6, 8]} />
-                <meshStandardMaterial color="#2a2a2a" metalness={0.3} roughness={0.6} />
+                <meshStandardMaterial color="#d8dcd6" metalness={0.2} roughness={0.55} />
             </mesh>
 
             {/* Left Wing */}
@@ -172,7 +174,7 @@ const Aircraft: React.FC<AircraftProps> = ({
                 <mesh rotation={[0, 0, -0.3]}>
                     <boxGeometry args={[20, 0.8, 8]} />
                     <meshStandardMaterial
-                        color="#4a4a4a"
+                        color="#c7ccc6"
                         metalness={0.4}
                         roughness={0.5}
                         emissive="#1a1a1a"
@@ -182,7 +184,7 @@ const Aircraft: React.FC<AircraftProps> = ({
                 {/* Wing feather detail */}
                 <mesh position={[-8, 0, 0]} rotation={[0, 0, -0.2]}>
                     <boxGeometry args={[6, 0.6, 6]} />
-                    <meshStandardMaterial color="#3a3a3a" metalness={0.3} roughness={0.6} />
+                    <meshStandardMaterial color="#8e969c" metalness={0.25} roughness={0.6} />
                 </mesh>
             </group>
 
@@ -191,7 +193,7 @@ const Aircraft: React.FC<AircraftProps> = ({
                 <mesh rotation={[0, 0, 0.3]}>
                     <boxGeometry args={[20, 0.8, 8]} />
                     <meshStandardMaterial
-                        color="#4a4a4a"
+                        color="#c7ccc6"
                         metalness={0.4}
                         roughness={0.5}
                         emissive="#1a1a1a"
@@ -201,25 +203,25 @@ const Aircraft: React.FC<AircraftProps> = ({
                 {/* Wing feather detail */}
                 <mesh position={[8, 0, 0]} rotation={[0, 0, 0.2]}>
                     <boxGeometry args={[6, 0.6, 6]} />
-                    <meshStandardMaterial color="#3a3a3a" metalness={0.3} roughness={0.6} />
+                    <meshStandardMaterial color="#8e969c" metalness={0.25} roughness={0.6} />
                 </mesh>
             </group>
 
             {/* Tail (flowing) */}
             <mesh position={[0, 0, 8]} rotation={[0.3, 0, 0]}>
                 <boxGeometry args={[2, 1, 6]} />
-                <meshStandardMaterial color="#2a2a2a" metalness={0.2} roughness={0.7} />
+                <meshStandardMaterial color="#8e969c" metalness={0.2} roughness={0.7} />
             </mesh>
 
-            {/* Golden accent - eye/helmet */}
+            {/* Nose sensor */}
             <mesh position={[0, 4, -10]}>
                 <sphereGeometry args={[0.8, 8, 8]} />
                 <meshStandardMaterial
-                    color="#8b7355"
-                    metalness={0.8}
+                    color="#22b8ff"
+                    metalness={0.45}
                     roughness={0.3}
-                    emissive="#4a3820"
-                    emissiveIntensity={0.3}
+                    emissive="#0b6f9e"
+                    emissiveIntensity={0.35}
                 />
             </mesh>
         </group>

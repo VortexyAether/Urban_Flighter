@@ -47,7 +47,7 @@ const RecenterMap: React.FC<{ lat: number; lon: number }> = ({ lat, lon }) => {
 
 const LocationPicker: React.FC<LocationPickerProps> = ({ initialLat, initialLon, onLocationSelect }) => {
     return (
-        <div style={{ height: '300px', width: '100%', borderRadius: '10px', overflow: 'hidden', marginTop: '10px' }}>
+        <div style={{ height: '220px', width: '100%', borderRadius: '8px', overflow: 'hidden', marginTop: '8px' }}>
             <MapContainer center={[initialLat, initialLon]} zoom={13} style={{ height: '100%', width: '100%' }}>
                 <RecenterMap lat={initialLat} lon={initialLon} />
                 <TileLayer

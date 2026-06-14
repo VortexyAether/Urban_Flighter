@@ -12,3 +12,8 @@ backend/venv/
 
 # Logs
 *.log
+
+# Generated data / local caches
+cache/
+backend/cache/
+AeroJAX_map_test2/

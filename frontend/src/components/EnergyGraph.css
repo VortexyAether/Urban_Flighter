@@ -1,33 +1,80 @@
 .energy-graph {
-  margin-top: 14px;
-  padding: 12px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  margin-top: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(17, 20, 23, 0.16);
 }
 
 .energy-graph__header {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.energy-graph__header div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .energy-graph__header span {
-  color: #8da3b3;
-  font-size: 0.78rem;
+  color: #5d656c;
+  font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 
+.energy-graph__header small {
+  color: #7a8288;
+  font-size: 0.64rem;
+  font-weight: 700;
+}
+
 .energy-graph__header strong {
-  color: #ffdd9b;
-  font-size: 1rem;
+  color: #703100;
+  font-size: 0.86rem;
+}
+
+.energy-graph__scale {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  margin-bottom: 6px;
+  padding: 4px;
+  border: 1px solid rgba(17, 20, 23, 0.12);
+  border-radius: 8px;
+  background: rgba(17, 20, 23, 0.055);
+}
+
+.energy-graph__scale button {
+  min-height: 26px;
+  padding: 4px 5px;
+  background: rgba(255, 255, 255, 0.7);
+  font-size: 0.62rem;
+  letter-spacing: 0.05em;
+}
+
+.energy-graph__scale button.active {
+  color: #07181f;
+  border-color: rgba(255, 138, 42, 0.58);
+  background:
+    linear-gradient(135deg, rgba(255, 138, 42, 0.22), rgba(34, 184, 255, 0.18)),
+    rgba(255, 255, 255, 0.9);
+  box-shadow: inset 0 -3px 0 #22b8ff;
 }
 
 .energy-graph__svg {
   display: block;
   width: 100%;
-  height: 110px;
+  height: 78px;
+}
+
+@media (max-width: 900px) {
+  .energy-graph__svg {
+    height: 54px;
+  }
 }

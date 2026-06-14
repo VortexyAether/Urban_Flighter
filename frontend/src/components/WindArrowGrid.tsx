@@ -70,9 +70,8 @@ const WindArrowGrid: React.FC<WindArrowGridProps> = ({
                 const arrowSize = THREE.MathUtils.clamp(speed / 10.0, 0.3, 2.5);
                 dummy.scale.set(arrowSize, arrowSize, arrowSize * 1.5);
 
-                // Color based on speed: Blue (slow) -> Red (fast)
-                const hue = THREE.MathUtils.clamp(0.7 - (speed / 25.0) * 0.7, 0.0, 0.7);
-                colorHelper.setHSL(hue, 1.0, 0.6);
+                const hue = THREE.MathUtils.lerp(0.08, 0.55, THREE.MathUtils.clamp(speed / 18.0, 0, 1));
+                colorHelper.setHSL(hue, 1.0, 0.58);
                 meshRef.current!.setColorAt(idx, colorHelper);
             }
 

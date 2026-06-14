@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import type { BuildingData, FlowField2DResponse } from '../api';
+import { calculateDragEnergy } from '../utils/dragEnergy';
 
 interface Vec2 {
   x: number;
@@ -9,8 +10,12 @@ interface Vec2 {
 interface TopDownGameProps {
   flow: FlowField2DResponse | null;
   showFlowAnimation: boolean;
+  flowVisualization?: FlowVisualization;
+  windScale?: number;
   onTelemetry: (telemetry: Telemetry) => void;
 }
+
+export type FlowVisualization = 'arrows' | 'streamlines' | 'colormap' | 'both';
 
 export interface Telemetry {
   droneSpeed: number;
@@ -47,6 +52,11 @@ interface FlowObstacle {
   span: number;
 }
 
+interface Streamline {
+  points: Vec2[];
+  speed: number;
+}
+
 const MAX_SPEED = 32;
 const THRUST = 34;
 const DRAG = 0.9;
@@ -65,6 +75,64 @@ function length(vec: Vec2) {
 function normalize(vec: Vec2): Vec2 {
   const len = length(vec);
   return len > 1e-6 ? { x: vec.x / len, y: vec.y / len } : { x: 0, y: 0 };
+}
+
+function hasResolvedGrid(flow: FlowField2DResponse) {
+  const { field } = flow;
+  const expected = field.nx * field.ny;
+  return field.nx > 1 && field.ny > 1 && field.ux.length === expected && field.uy.length === expected;
+}
+
+function isInsideBounds(point: Vec2, bounds: FlowField2DResponse['field']['bounds']) {
+  return (
+    point.x >= bounds.min_x && point.x <= bounds.max_x
+    && point.y >= bounds.min_y && point.y <= bounds.max_y
+  );
+}
+
+function sampleResolvedGrid(flow: FlowField2DResponse, point: Vec2): Vec2 | null {
+  if (!hasResolvedGrid(flow)) {
+    return null;
+  }
+
+  const { field } = flow;
+  const { bounds } = field;
+  if (
+    point.x < bounds.min_x || point.x > bounds.max_x
+    || point.y < bounds.min_y || point.y > bounds.max_y
+  ) {
+    return { x: flow.inlet.ux, y: flow.inlet.uy };
+  }
+
+  const gx = ((point.x - bounds.min_x) / Math.max(1e-6, bounds.max_x - bounds.min_x)) * (field.nx - 1);
+  const gy = ((point.y - bounds.min_y) / Math.max(1e-6, bounds.max_y - bounds.min_y)) * (field.ny - 1);
+  const x0 = clamp(Math.floor(gx), 0, field.nx - 1);
+  const y0 = clamp(Math.floor(gy), 0, field.ny - 1);
+  const x1 = clamp(x0 + 1, 0, field.nx - 1);
+  const y1 = clamp(y0 + 1, 0, field.ny - 1);
+  const tx = gx - x0;
+  const ty = gy - y0;
+  const idx = (ix: number, iy: number) => ix * field.ny + iy;
+
+  const nearest = idx(Math.round(gx), Math.round(gy));
+  if ((field.mask[nearest] ?? 0) > 0) {
+    return { x: 0, y: 0 };
+  }
+
+  const bilerp = (values: number[]) => {
+    const c00 = values[idx(x0, y0)] ?? 0;
+    const c10 = values[idx(x1, y0)] ?? c00;
+    const c01 = values[idx(x0, y1)] ?? c00;
+    const c11 = values[idx(x1, y1)] ?? c10;
+    const c0 = c00 * (1 - tx) + c10 * tx;
+    const c1 = c01 * (1 - tx) + c11 * tx;
+    return c0 * (1 - ty) + c1 * ty;
+  };
+
+  return {
+    x: bilerp(field.ux),
+    y: bilerp(field.uy),
+  };
 }
 
 function pointInPolygon(point: Vec2, polygon: number[][]) {
@@ -133,11 +201,16 @@ function buildObstacles(buildings: BuildingData[]): FlowObstacle[] {
 }
 
 function sampleField(flow: FlowField2DResponse, obstacles: FlowObstacle[], point: Vec2): Vec2 {
+  const resolved = sampleResolvedGrid(flow, point);
+  if (resolved) {
+    return resolved;
+  }
+
   const wind = { x: flow.inlet.ux, y: flow.inlet.uy };
   const speed = Math.max(0.1, length(wind));
   const windHat = normalize(wind);
   const crossHat = { x: -windHat.y, y: windHat.x };
-  let velocity = { ...wind };
+  const velocity = { ...wind };
 
   for (const obstacle of obstacles) {
     const influencePad = Math.max(18, obstacle.span * 1.6);
@@ -187,16 +260,83 @@ function sampleField(flow: FlowField2DResponse, obstacles: FlowObstacle[], point
   return velocity;
 }
 
+function scaledWind(wind: Vec2, windScale: number): Vec2 {
+  return {
+    x: wind.x * windScale,
+    y: wind.y * windScale,
+  };
+}
+
 function computeEnergyRate(velocity: Vec2, wind: Vec2): number {
-  const droneSpeed = length(velocity);
-  const windSpeed = length(wind);
-  const relativeWind = { x: velocity.x - wind.x, y: velocity.y - wind.y };
-  const relativeSpeed = length(relativeWind);
-  const directionFactor = droneSpeed > 0.25 && windSpeed > 0.25
-    ? Math.max(0, (velocity.x * wind.x + velocity.y * wind.y) / (droneSpeed * windSpeed))
-    : 0;
-  const headwindPenalty = (1 - directionFactor) * windSpeed * 1.2;
-  return 8 + droneSpeed * 0.9 + relativeSpeed * 1.6 + headwindPenalty;
+  return calculateDragEnergy(
+    { x: velocity.x, y: 0, z: velocity.y },
+    { x: wind.x, y: 0, z: wind.y },
+  ).consumptionRate;
+}
+
+function lerpColor(
+  a: [number, number, number],
+  b: [number, number, number],
+  t: number,
+): [number, number, number] {
+  return [
+    Math.round(a[0] + (b[0] - a[0]) * t),
+    Math.round(a[1] + (b[1] - a[1]) * t),
+    Math.round(a[2] + (b[2] - a[2]) * t),
+  ];
+}
+
+function speedToRgb(speed: number, maxSpeed: number): [number, number, number] {
+  const t = clamp(speed / Math.max(0.1, maxSpeed), 0, 1);
+  if (t < 0.5) {
+    return lerpColor([10, 35, 52], [34, 184, 255], t / 0.5);
+  }
+  if (t < 0.82) {
+    return lerpColor([34, 184, 255], [255, 138, 42], (t - 0.5) / 0.32);
+  }
+  return lerpColor([255, 138, 42], [255, 246, 220], (t - 0.82) / 0.18);
+}
+
+function buildSpeedColormap(flow: FlowField2DResponse): HTMLCanvasElement | null {
+  if (!hasResolvedGrid(flow) || typeof document === 'undefined') {
+    return null;
+  }
+
+  const { field } = flow;
+  const canvas = document.createElement('canvas');
+  canvas.width = field.nx;
+  canvas.height = field.ny;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    return null;
+  }
+
+  const maxSpeed = Math.max(0.1, field.stats.max_speed_mps);
+  const image = ctx.createImageData(field.nx, field.ny);
+  for (let ix = 0; ix < field.nx; ix += 1) {
+    for (let iy = 0; iy < field.ny; iy += 1) {
+      const sourceIndex = ix * field.ny + iy;
+      const targetIndex = ((field.ny - 1 - iy) * field.nx + ix) * 4;
+      if ((field.mask[sourceIndex] ?? 0) > 0) {
+        image.data[targetIndex] = 255;
+        image.data[targetIndex + 1] = 255;
+        image.data[targetIndex + 2] = 255;
+        image.data[targetIndex + 3] = 0;
+        continue;
+      }
+
+      const ux = field.ux[sourceIndex] ?? 0;
+      const uy = field.uy[sourceIndex] ?? 0;
+      const [r, g, b] = speedToRgb(Math.hypot(ux, uy), maxSpeed);
+      image.data[targetIndex] = r;
+      image.data[targetIndex + 1] = g;
+      image.data[targetIndex + 2] = b;
+      image.data[targetIndex + 3] = 188;
+    }
+  }
+
+  ctx.putImageData(image, 0, 0);
+  return canvas;
 }
 
 function worldToCanvas(
@@ -241,8 +381,8 @@ function drawDrone(ctx: CanvasRenderingContext2D, canvasPoint: Vec2, heading: nu
   ctx.lineTo(0, 5);
   ctx.lineTo(-10, 10);
   ctx.closePath();
-  ctx.fillStyle = '#fff3bf';
-  ctx.strokeStyle = '#1b1b1b';
+  ctx.fillStyle = '#ffffff';
+  ctx.strokeStyle = '#0f1114';
   ctx.lineWidth = 2;
   ctx.fill();
   ctx.stroke();
@@ -275,18 +415,114 @@ function createParticle(bounds: FlowField2DResponse['field']['bounds'], flow: Fl
   };
 }
 
+function traceStreamline(
+  flow: FlowField2DResponse,
+  obstacles: FlowObstacle[],
+  seed: Vec2,
+  bounds: FlowField2DResponse['field']['bounds'],
+  direction: 1 | -1,
+  stepLength: number,
+  maxSteps: number,
+) {
+  const points: Vec2[] = [];
+  const speeds: number[] = [];
+  let current = seed;
+
+  for (let step = 0; step < maxSteps; step += 1) {
+    const local = sampleField(flow, obstacles, current);
+    const speed = length(local);
+    if (speed < 0.035) {
+      break;
+    }
+
+    const dir = normalize(local);
+    const next = {
+      x: current.x + dir.x * stepLength * direction,
+      y: current.y + dir.y * stepLength * direction,
+    };
+
+    if (!isInsideBounds(next, bounds)) {
+      break;
+    }
+    if (obstacles.some((obstacle) => pointInPolygon(next, obstacle.footprint))) {
+      break;
+    }
+
+    points.push(next);
+    speeds.push(speed);
+    current = next;
+  }
+
+  return { points, speeds };
+}
+
+function buildStreamlines(
+  flow: FlowField2DResponse,
+  obstacles: FlowObstacle[],
+  bounds: FlowField2DResponse['field']['bounds'],
+): Streamline[] {
+  const spanX = bounds.max_x - bounds.min_x;
+  const spanY = bounds.max_y - bounds.min_y;
+  const majorSpan = Math.max(spanX, spanY);
+  const columns = 10;
+  const rows = 13;
+  const stepLength = Math.max(3.5, majorSpan / 155);
+  const maxSteps = 92;
+  const lines: Streamline[] = [];
+
+  for (let ix = 0; ix < columns; ix += 1) {
+    for (let iy = 0; iy < rows; iy += 1) {
+      const jitterX = (((ix * 37 + iy * 17) % 19) - 9) / 19;
+      const jitterY = (((ix * 13 + iy * 29) % 23) - 11) / 23;
+      const seed = {
+        x: bounds.min_x + ((ix + 0.5 + jitterX * 0.24) / columns) * spanX,
+        y: bounds.min_y + ((iy + 0.5 + jitterY * 0.24) / rows) * spanY,
+      };
+
+      if (obstacles.some((obstacle) => pointInPolygon(seed, obstacle.footprint))) {
+        continue;
+      }
+
+      const seedWind = sampleField(flow, obstacles, seed);
+      if (length(seedWind) < 0.04) {
+        continue;
+      }
+
+      const backward = traceStreamline(flow, obstacles, seed, bounds, -1, stepLength, maxSteps);
+      const forward = traceStreamline(flow, obstacles, seed, bounds, 1, stepLength, maxSteps);
+      const points = [...backward.points.reverse(), seed, ...forward.points];
+      if (points.length < 10) {
+        continue;
+      }
+
+      const speeds = [...backward.speeds, length(seedWind), ...forward.speeds];
+      const meanSpeed = speeds.reduce((sum, value) => sum + value, 0) / Math.max(1, speeds.length);
+      lines.push({ points, speed: meanSpeed });
+    }
+  }
+
+  return lines;
+}
+
 function resetWorld(flow: FlowField2DResponse | null): WorldState {
   if (!flow) {
     return { position: { x: 0, y: 0 }, velocity: { x: 0, y: 0 }, heading: 0, energyUsed: 0 };
   }
 
   const { bounds } = flow.field;
+  const center = {
+    x: (bounds.min_x + bounds.max_x) * 0.5,
+    y: (bounds.min_y + bounds.max_y) * 0.5,
+  };
+  const spanX = bounds.max_x - bounds.min_x;
+  const spanY = bounds.max_y - bounds.min_y;
   const candidates = [
-    { x: 0, y: 0 },
-    { x: 0, y: bounds.max_y * 0.35 },
-    { x: 0, y: bounds.min_y * 0.35 },
-    { x: bounds.min_x * 0.35, y: 0 },
-    { x: bounds.max_x * 0.35, y: 0 },
+    center,
+    { x: center.x, y: center.y + spanY * 0.18 },
+    { x: center.x, y: center.y - spanY * 0.18 },
+    { x: center.x - spanX * 0.18, y: center.y },
+    { x: center.x + spanX * 0.18, y: center.y },
+    { x: bounds.min_x + spanX * 0.12, y: center.y },
   ];
 
   const isClear = (point: Vec2) => !flow.buildings.some((building) => pointInPolygon(point, building.footprint));
@@ -309,21 +545,32 @@ function resetWorld(flow: FlowField2DResponse | null): WorldState {
   };
 }
 
-export default function TopDownGame({ flow, showFlowAnimation, onTelemetry }: TopDownGameProps) {
+export default function TopDownGame({
+  flow,
+  showFlowAnimation,
+  flowVisualization = 'arrows',
+  windScale = 1,
+  onTelemetry,
+}: TopDownGameProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number>(0);
   const worldRef = useRef<WorldState>(resetWorld(flow));
   const keysRef = useRef<Set<string>>(new Set());
   const particlesRef = useRef<FlowParticle[]>([]);
+  const trailRef = useRef<Vec2[]>([]);
   const flowLayerRef = useRef<HTMLCanvasElement | null>(null);
 
-  const buildings = flow?.buildings ?? [];
+  const buildings = useMemo(() => flow?.buildings ?? [], [flow]);
   const obstacles = useMemo(() => buildObstacles(buildings), [buildings]);
   const bounds = flow?.field.bounds;
+  const speedColormap = useMemo(() => (flow ? buildSpeedColormap(flow) : null), [flow]);
   const viewportBounds = useMemo(() => {
     if (!flow) {
       return null;
+    }
+    if (flow.field.bounds) {
+      return flow.field.bounds;
     }
     return {
       min_x: -VIEW_RADIUS_M,
@@ -334,17 +581,21 @@ export default function TopDownGame({ flow, showFlowAnimation, onTelemetry }: To
   }, [flow]);
 
   const fieldPreview = useMemo(() => {
-    if (!flow || !viewportBounds) {
+    if (!flow || !viewportBounds || flowVisualization !== 'arrows') {
       return [];
     }
 
-    const step = 12;
+    const span = Math.max(
+      viewportBounds.max_x - viewportBounds.min_x,
+      viewportBounds.max_y - viewportBounds.min_y,
+    );
+    const step = Math.max(12, span / 46);
     const arrows: Array<{ x: number; y: number; vx: number; vy: number }> = [];
 
     for (let x = viewportBounds.min_x + step * 0.5; x <= viewportBounds.max_x; x += step) {
       for (let y = viewportBounds.min_y + step * 0.5; y <= viewportBounds.max_y; y += step) {
         if (obstacles.some((obstacle) => pointInPolygon({ x, y }, obstacle.footprint))) continue;
-        const local = sampleField(flow, obstacles, { x, y });
+        const local = scaledWind(sampleField(flow, obstacles, { x, y }), windScale);
         arrows.push({
           x,
           y,
@@ -355,14 +606,22 @@ export default function TopDownGame({ flow, showFlowAnimation, onTelemetry }: To
     }
 
     return arrows;
-  }, [flow, viewportBounds]);
+  }, [flow, flowVisualization, obstacles, viewportBounds, windScale]);
+
+  const streamlines = useMemo(() => {
+    if (!flow || !viewportBounds || (flowVisualization !== 'streamlines' && flowVisualization !== 'both')) {
+      return [];
+    }
+    return buildStreamlines(flow, obstacles, viewportBounds);
+  }, [flow, flowVisualization, obstacles, viewportBounds]);
 
   useEffect(() => {
     worldRef.current = resetWorld(flow);
+    trailRef.current = [worldRef.current.position];
     particlesRef.current = flow && viewportBounds
       ? Array.from({ length: PARTICLE_COUNT }, () => createParticle(viewportBounds, flow))
       : [];
-  }, [flow]);
+  }, [flow, viewportBounds]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -436,6 +695,7 @@ export default function TopDownGame({ flow, showFlowAnimation, onTelemetry }: To
 
       worldRef.current.position = worldPoint;
       worldRef.current.velocity = { x: 0, y: 0 };
+      trailRef.current = [worldPoint];
     };
 
     canvas.addEventListener('click', handleClick);
@@ -450,8 +710,8 @@ export default function TopDownGame({ flow, showFlowAnimation, onTelemetry }: To
       context.clearRect(0, 0, width, height);
 
       const gradient = context.createLinearGradient(0, 0, width, height);
-      gradient.addColorStop(0, '#101921');
-      gradient.addColorStop(1, '#05090d');
+      gradient.addColorStop(0, '#1c2024');
+      gradient.addColorStop(1, '#0f1114');
       context.fillStyle = gradient;
       context.fillRect(0, 0, width, height);
 
@@ -470,7 +730,7 @@ export default function TopDownGame({ flow, showFlowAnimation, onTelemetry }: To
       const moveDir = normalize(input);
       world.heading = length(moveDir) > 0.1 ? Math.atan2(moveDir.y, moveDir.x) : world.heading;
 
-      const wind = sampleField(flow, obstacles, world.position);
+      const wind = scaledWind(sampleField(flow, obstacles, world.position), windScale);
       world.velocity.x += moveDir.x * THRUST * dt;
       world.velocity.y += moveDir.y * THRUST * dt;
       world.velocity.x += wind.x * 0.22 * dt;
@@ -504,23 +764,39 @@ export default function TopDownGame({ flow, showFlowAnimation, onTelemetry }: To
       const energyRate = computeEnergyRate(world.velocity, wind);
       world.energyUsed += energyRate * dt;
 
+      const trail = trailRef.current;
+      const lastTrailPoint = trail.at(-1);
+      if (!lastTrailPoint || Math.hypot(world.position.x - lastTrailPoint.x, world.position.y - lastTrailPoint.y) > 1.8) {
+        trail.push({ ...world.position });
+        if (trail.length > 180) trail.shift();
+      }
+
       const worldWidth = viewportBounds.max_x - viewportBounds.min_x;
       const worldHeight = viewportBounds.max_y - viewportBounds.min_y;
       const scale = Math.min(width / worldWidth, height / worldHeight);
       const offsetX = (width - worldWidth * scale) * 0.5;
       const offsetY = (height - worldHeight * scale) * 0.5;
 
-      context.fillStyle = 'rgba(255,255,255,0.03)';
+      context.fillStyle = 'rgba(255, 255, 255, 0.055)';
       context.fillRect(offsetX, offsetY, worldWidth * scale, worldHeight * scale);
 
-      if (showFlowAnimation) {
+      if (showFlowAnimation && speedColormap && (flowVisualization === 'colormap' || flowVisualization === 'both')) {
+        context.save();
+        context.globalAlpha = 0.86;
+        context.globalCompositeOperation = 'screen';
+        context.imageSmoothingEnabled = true;
+        context.drawImage(speedColormap, offsetX, offsetY, worldWidth * scale, worldHeight * scale);
+        context.restore();
+      }
+
+      if (showFlowAnimation && flowVisualization === 'arrows') {
         flowContext.save();
         flowContext.globalCompositeOperation = 'source-over';
-        flowContext.fillStyle = 'rgba(5, 9, 13, 0.09)';
+        flowContext.fillStyle = 'rgba(15, 17, 20, 0.11)';
         flowContext.fillRect(0, 0, width, height);
         flowContext.globalCompositeOperation = 'lighter';
         for (const particle of particlesRef.current) {
-          const local = sampleField(flow, obstacles, particle.position);
+          const local = scaledWind(sampleField(flow, obstacles, particle.position), windScale);
           const mag = length(local);
           particle.position.x += local.x * dt * 8.5;
           particle.position.y += local.y * dt * 8.5;
@@ -549,7 +825,9 @@ export default function TopDownGame({ flow, showFlowAnimation, onTelemetry }: To
             viewportBounds,
           );
           const alpha = Math.min(0.35, 0.08 + mag / 18);
-          flowContext.strokeStyle = `hsla(${particle.hue}, 95%, ${60 + Math.min(20, mag * 2)}%, ${alpha})`;
+          const hue = mag > 1.2 ? 200 : 28;
+          const light = Math.min(68, 44 + mag * 5);
+          flowContext.strokeStyle = `hsla(${hue}, 100%, ${light}%, ${Math.min(0.42, alpha + 0.08)})`;
           flowContext.lineWidth = particle.width + Math.min(1.8, mag * 0.08);
           flowContext.beginPath();
           flowContext.moveTo(prev.x, prev.y);
@@ -557,7 +835,7 @@ export default function TopDownGame({ flow, showFlowAnimation, onTelemetry }: To
           flowContext.stroke();
 
           if (mag > 2.5) {
-            flowContext.fillStyle = `hsla(${particle.hue}, 100%, 78%, ${Math.min(0.22, alpha * 0.8)})`;
+            flowContext.fillStyle = `hsla(200, 100%, 72%, ${Math.min(0.24, alpha * 0.9)})`;
             flowContext.beginPath();
             flowContext.arc(start.x, start.y, 1.2 + Math.min(1.8, mag * 0.06), 0, Math.PI * 2);
             flowContext.fill();
@@ -569,19 +847,21 @@ export default function TopDownGame({ flow, showFlowAnimation, onTelemetry }: To
         flowContext.clearRect(0, 0, width, height);
       }
 
-      const windRibbonCount = 16;
-      for (let i = 0; i < windRibbonCount; i += 1) {
-        const ribbonY = offsetY + ((i + 0.5) / windRibbonCount) * worldHeight * scale;
-        const shimmer = ((time * 0.04) + i * 17) % (worldWidth * scale + 140);
-        context.strokeStyle = 'rgba(165, 232, 255, 0.055)';
-        context.lineWidth = 1;
-        context.beginPath();
-        context.moveTo(offsetX + shimmer - 90, ribbonY);
-        context.lineTo(offsetX + shimmer, ribbonY);
-        context.stroke();
+      if (flowVisualization === 'arrows') {
+        const windRibbonCount = 16;
+        for (let i = 0; i < windRibbonCount; i += 1) {
+          const ribbonY = offsetY + ((i + 0.5) / windRibbonCount) * worldHeight * scale;
+          const shimmer = ((time * 0.04) + i * 17) % (worldWidth * scale + 140);
+          context.strokeStyle = 'rgba(255, 138, 42, 0.13)';
+          context.lineWidth = 1;
+          context.beginPath();
+          context.moveTo(offsetX + shimmer - 90, ribbonY);
+          context.lineTo(offsetX + shimmer, ribbonY);
+          context.stroke();
+        }
       }
 
-      context.strokeStyle = 'rgba(255,255,255,0.08)';
+      context.strokeStyle = 'rgba(255, 255, 255, 0.09)';
       context.lineWidth = 1;
       for (let i = 1; i < 8; i += 1) {
         const x = offsetX + ((worldWidth * scale) / 8) * i;
@@ -596,6 +876,35 @@ export default function TopDownGame({ flow, showFlowAnimation, onTelemetry }: To
         context.stroke();
       }
 
+      if (showFlowAnimation && (flowVisualization === 'streamlines' || flowVisualization === 'both')) {
+        context.save();
+        context.globalCompositeOperation = 'lighter';
+        context.lineCap = 'round';
+        context.lineJoin = 'round';
+        context.setLineDash([16, 13]);
+        context.lineDashOffset = -time * 0.035;
+        const maxSpeed = Math.max(0.1, flow.field.stats.max_speed_mps);
+
+        streamlines.forEach((line) => {
+          const t = clamp(line.speed / maxSpeed, 0, 1);
+          const hue = 202 - t * 174;
+          const alpha = 0.28 + t * 0.34;
+          context.strokeStyle = `hsla(${hue}, 100%, ${58 + t * 12}%, ${alpha})`;
+          context.lineWidth = 0.9 + t * 2.3;
+          context.beginPath();
+          line.points.forEach((point, index) => {
+            const canvasPoint = worldToCanvas(point, width, height, viewportBounds);
+            if (index === 0) {
+              context.moveTo(canvasPoint.x, canvasPoint.y);
+            } else {
+              context.lineTo(canvasPoint.x, canvasPoint.y);
+            }
+          });
+          context.stroke();
+        });
+        context.restore();
+      }
+
       fieldPreview.forEach((arrow) => {
         const origin = worldToCanvas({ x: arrow.x, y: arrow.y }, width, height, viewportBounds);
         const mag = Math.hypot(arrow.vx, arrow.vy);
@@ -603,7 +912,8 @@ export default function TopDownGame({ flow, showFlowAnimation, onTelemetry }: To
         const arrowScale = Math.min(18, 6 + mag * 1.8);
         const dir = normalize({ x: arrow.vx, y: arrow.vy });
         const tip = { x: origin.x + dir.x * arrowScale, y: origin.y - dir.y * arrowScale };
-        context.strokeStyle = `hsla(${190 - Math.min(120, mag * 10)}, 92%, 70%, 0.78)`;
+        const arrowHue = mag > 1.4 ? 200 : 28;
+        context.strokeStyle = `hsla(${arrowHue}, 100%, 62%, 0.84)`;
         context.lineWidth = 1.35;
         context.beginPath();
         context.moveTo(origin.x, origin.y);
@@ -618,6 +928,20 @@ export default function TopDownGame({ flow, showFlowAnimation, onTelemetry }: To
         context.fill();
       });
 
+      if (trailRef.current.length > 1) {
+        context.save();
+        context.strokeStyle = 'rgba(34, 184, 255, 0.72)';
+        context.lineWidth = 2;
+        context.beginPath();
+        trailRef.current.forEach((point, index) => {
+          const canvasPoint = worldToCanvas(point, width, height, viewportBounds);
+          if (index === 0) context.moveTo(canvasPoint.x, canvasPoint.y);
+          else context.lineTo(canvasPoint.x, canvasPoint.y);
+        });
+        context.stroke();
+        context.restore();
+      }
+
       buildings.forEach((building: BuildingData) => {
         if (!building.footprint.length) return;
         context.beginPath();
@@ -627,8 +951,8 @@ export default function TopDownGame({ flow, showFlowAnimation, onTelemetry }: To
           else context.lineTo(point.x, point.y);
         });
         context.closePath();
-        context.fillStyle = '#3b4b57';
-        context.strokeStyle = '#a2bdcf';
+        context.fillStyle = '#e7e8e4';
+        context.strokeStyle = '#1f252a';
         context.lineWidth = 1.2;
         context.fill();
         context.stroke();
@@ -680,7 +1004,20 @@ export default function TopDownGame({ flow, showFlowAnimation, onTelemetry }: To
         window.cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [bounds, buildings, fieldPreview, flow, obstacles, onTelemetry, showFlowAnimation, viewportBounds]);
+  }, [
+    bounds,
+    buildings,
+    fieldPreview,
+    flow,
+    flowVisualization,
+    obstacles,
+    onTelemetry,
+    showFlowAnimation,
+    speedColormap,
+    streamlines,
+    viewportBounds,
+    windScale,
+  ]);
 
   return <canvas ref={canvasRef} className="game-canvas" />;
 }

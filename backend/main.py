@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 import uvicorn
 
 from services.geometry import fetch_buildings
+from services.aerojax_demo import build_aerojax_demo_flow
 from services.flow_2d import wind_dir_to_inlet_vector
 from services.wind import get_real_weather, generate_global_wind_params
 from services.simulation_manager import SimulationManager
@@ -28,8 +29,8 @@ sim_manager = SimulationManager(output_root=Path(__file__).parent / "sim_outputs
 
 
 class SimulationRequest(BaseModel):
-    lat: float = 37.4979
-    lon: float = 127.0276
+    lat: float = 37.451448
+    lon: float = 126.6515423
     radius_m: float = Field(default=800.0, gt=50.0)
     nx: int = Field(default=64, ge=16, le=192)
     ny: int = Field(default=64, ge=16, le=192)
@@ -46,10 +47,10 @@ class SampleWindRequest(BaseModel):
 
 
 class FlowField2DRequest(BaseModel):
-    lat: float = 37.4979
-    lon: float = 127.0276
-    geometry_radius_m: float = Field(default=200.0, gt=50.0, le=1000.0)
-    solve_radius_m: float = Field(default=1000.0, ge=200.0, le=3000.0)
+    lat: float = 37.451448
+    lon: float = 126.6515423
+    geometry_radius_m: float = Field(default=400.0, gt=50.0, le=1000.0)
+    solve_radius_m: float = Field(default=400.0, ge=200.0, le=3000.0)
     grid_size_m: float = Field(default=20.0, gt=0.1, le=80.0)
     use_real_weather: bool = True
 
@@ -164,6 +165,14 @@ def create_flow_field_2d(req: FlowField2DRequest):
             },
         },
     }
+
+
+@app.get("/flow-fields/aerojax-demo")
+def get_aerojax_demo_flow(stride: int = 8, snapshot_t: int | None = None):
+    try:
+        return build_aerojax_demo_flow(stride=stride, snapshot_t=snapshot_t)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 if __name__ == "__main__":

@@ -48,9 +48,8 @@ const WindContour: React.FC<WindContourProps> = ({
             const windVec = getWindVector(pos, globalWindVector, buildings);
             const speed = windVec.length();
 
-            // Map speed to color (Blue -> Cyan -> Green -> Yellow -> Red)
-            const hue = THREE.MathUtils.clamp(0.7 - (speed / 25.0) * 0.7, 0.0, 0.7);
-            const color = new THREE.Color().setHSL(hue, 1.0, 0.5);
+            const hue = THREE.MathUtils.lerp(0.08, 0.55, THREE.MathUtils.clamp(speed / 18.0, 0, 1));
+            const color = new THREE.Color().setHSL(hue, 0.92, 0.48);
 
             colors[i * 3] = color.r;
             colors[i * 3 + 1] = color.g;

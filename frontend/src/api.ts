@@ -48,6 +48,14 @@ export interface FlowField2DResponse {
         solve_radius_m: number;
     };
     field: FlowFieldGrid;
+    source?: {
+        kind: string;
+        area?: string;
+        snapshot_t?: number;
+        is_latest?: boolean;
+        stride?: number;
+        raw_grid?: number[];
+    };
 }
 
 export const fetchMapData = async (lat: number, lon: number, radius: number = 300): Promise<MapData> => {
@@ -71,8 +79,8 @@ export const fetchWeather = async (lat: number, lon: number) => {
 export const fetchFlowField2D = async (
     lat: number,
     lon: number,
-    geometry_radius_m: number = 200,
-    solve_radius_m: number = 1000,
+    geometry_radius_m: number = 400,
+    solve_radius_m: number = 400,
     grid_size_m: number = 20
 ): Promise<FlowField2DResponse> => {
     const response = await fetch(`${API_URL}/flow-fields/2d`, {
@@ -92,6 +100,20 @@ export const fetchFlowField2D = async (
 
     if (!response.ok) {
         throw new Error('Failed to fetch 2D flow field');
+    }
+
+    return await response.json();
+};
+
+export const fetchAeroJaxDemoFlow = async (stride: number = 8, snapshot_t?: number): Promise<FlowField2DResponse> => {
+    const params = new URLSearchParams({ stride: String(stride) });
+    if (snapshot_t !== undefined) {
+        params.set('snapshot_t', String(snapshot_t));
+    }
+    const response = await fetch(`${API_URL}/flow-fields/aerojax-demo?${params.toString()}`);
+
+    if (!response.ok) {
+        throw new Error('Failed to fetch AeroJAX demo flow field');
     }
 
     return await response.json();
